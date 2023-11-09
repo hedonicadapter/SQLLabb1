@@ -9,16 +9,21 @@ BEGIN
 
     BEGIN TRY
 
+        DECLARE @realQuantity INT = 0;
+
+        SET @realQuantity = (
+                SELECT IIF((Quantity - @quantity) > 0, Quantity - @quantity, 0) -- Math.Max(x, 0) (Finns GREATER() i senare versioner, mycket mer clean)
+                FROM Inventory 
+                WHERE ISBN = @ISBN AND StoreID = @fromStore
+            )
+
         UPDATE Inventory
-        SET Quantity = Quantity + @quantity
+        SET Quantity = Quantity + @realQuantity
         WHERE ISBN = @ISBN AND StoreID = @toStore;
         
         UPDATE Inventory
-        SET Quantity = (SELECT IIF((Quantity - @quantity) > 0, Quantity - @quantity, 0))
+        SET Quantity = @realQuantity
         WHERE ISBN = @ISBN AND StoreID = @fromStore;
-
-        -- Istället för IIF(), funkar i SQL Server 2022 T-SQL 16.x+:
-        -- GREATEST(Quantity - @quantity, 0) -- mycket mer clean imo
         
         COMMIT;
     END TRY
