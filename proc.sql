@@ -7,28 +7,48 @@ AS
 BEGIN
     BEGIN TRAN;
 
-    BEGIN TRY
-
+    BEGIN TRY    
         DECLARE @realQuantity INT = 0;
 
-        SET @realQuantity = (
-                SELECT IIF((Quantity - @quantity) > 0, Quantity - @quantity, 0) -- Math.Max(x, 0) (Finns GREATER() i senare versioner, mycket mer clean)
-                FROM Inventory 
-                WHERE ISBN = @ISBN AND StoreID = @fromStore
-            )
-
-        UPDATE Inventory
-        SET Quantity = Quantity + @realQuantity
-        WHERE ISBN = @ISBN AND StoreID = @toStore;
-        
-        UPDATE Inventory
-        SET Quantity = @realQuantity
+		SELECT @realQuantity = IIF((Quantity - @quantity) > 0, Quantity - @quantity, 0)
+        FROM Inventory
         WHERE ISBN = @ISBN AND StoreID = @fromStore;
+		
+		IF EXISTS (SELECT * FROM Inventory WHERE ISBN = @ISBN AND StoreID = @toStore)
+		BEGIN
+			UPDATE Inventory
+			SET Quantity = Quantity + @realQuantity
+			WHERE ISBN = @ISBN AND StoreID = @toStore;
+		END
+		ELSE BEGIN
+			INSERT INTO Inventory(StoreID, ISBN, Quantity)
+			VALUES (@toStore, @ISBN, @realQuantity);
+		END
+        
+		IF @@ROWCOUNT = 0
+            RAISERROR('No toStore rows updated', 16, 1);
+ 
+		
+		IF EXISTS (SELECT * FROM Inventory WHERE ISBN = @ISBN AND StoreID = @fromStore)
+		BEGIN
+			UPDATE Inventory
+			SET Quantity = @realQuantity
+			WHERE ISBN = @ISBN AND StoreID = @fromStore;
+		END
+		ELSE BEGIN
+			INSERT INTO Inventory(StoreID, ISBN, Quantity)
+			VALUES (@fromStore, @ISBN, @realQuantity);
+		END
+
+        IF @@ROWCOUNT = 0
+            RAISERROR('No fromStore rows updated', 16, 1);
         
         COMMIT;
     END TRY
+
     BEGIN CATCH
-        PRINT 'Something went wrong moving books: ' + ERROR_MESSAGE();
+        SELECT ERROR_LINE() as Line, ERROR_MESSAGE() as Error;
         ROLLBACK;
     END CATCH;
 END
+EXEC moveBooks @ISBN = 9781111111111, @fromStore = 5, @toStore = 4, @quantity = 45
