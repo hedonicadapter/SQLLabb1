@@ -8,11 +8,13 @@ CREATE TABLE Authors (
 CREATE TABLE Books (
     ISBN13 VARCHAR(17) PRIMARY KEY,
     Title NVARCHAR(255) NOT NULL,
-    LanguageISO VARCHAR(3),
+    LanguageISO VARCHAR(5),
     Price DECIMAL(19,4),
     Published DATE,
-    Author INT FOREIGN KEY REFERENCES Authors(AuthorID), -- Borde vara authors
-    Description NVARCHAR(255)
+    Author INT, -- Borde vara authors
+    Description NVARCHAR(255),
+
+    FOREIGN KEY (Author) REFERENCES Authors(AuthorID) ON DELETE CASCADE
 )
 
 CREATE TABLE Genres (
